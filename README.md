@@ -4,5 +4,7 @@ Este proyecto automatiza la recolección, análisis y predicción de métricas d
 
 
 ![Predicción ARIMA](arima.JPG)
+![Predicción ARIMA](armónico.JPG)
+![Predicción ARIMA](prophet.JPG)
 ---
 
