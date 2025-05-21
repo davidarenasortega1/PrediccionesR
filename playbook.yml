@@ -1,0 +1,89 @@
+- hosts: servidor
+  become: yes
+  vars:
+    ansible_user: avid
+    shiny_app_src: /mnt/c/Users/David/Documents/Pronosticos/app.R
+    shiny_app_dest: /home/avid/Pronosticos/
+    prometheus_config_src: /mnt/c/Users/David/Desktop/PrácticaFinal/prometheus.yml
+    grafana_datasource_src: /mnt/c/Users/David/Desktop/PrácticaFinal/prometheus-datasource.yml
+
+  tasks:
+    - name: Actualizar repositorios (Ubuntu/Debian)
+      apt:
+        update_cache: yes
+
+    - name: Instalar Docker y dependencias
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+          - r-base
+          - r-base-dev
+          - cron
+        state: present
+
+    - name: Verificar si librería forecast ya está instalada
+      shell: Rscript -e "if (!'forecast' %in% rownames(installed.packages())) install.packages('forecast', repos='https://cloud.r-project.org')"
+
+    - name: Instalar paquetes R necesarios
+      shell: |
+        Rscript -e "packages <- c('shiny', 'forecast'); \
+        to_install <- setdiff(packages, rownames(installed.packages())); \
+        if (length(to_install)) install.packages(to_install, repos='https://cloud.r-project.org')"
+
+    - name: Crear directorio para configuración Prometheus y Grafana
+      file:
+        path: "/home/{{ ansible_user }}/monitoring"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Copiar docker-compose.yml con Prometheus y Grafana
+      copy:
+        src: /mnt/c/Users/David/Desktop/PrácticaFinal/docker-compose.yml
+        dest: /home/{{ ansible_user }}/docker-compose.yml
+        mode: '0644'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Copiar configuración de Prometheus
+      copy:
+        src: "{{ prometheus_config_src }}"
+        dest: "/home/{{ ansible_user }}/monitoring/prometheus.yml"
+        mode: '0644'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Copiar datasource de Grafana
+      copy:
+        src: "{{ grafana_datasource_src }}"
+        dest: "/home/{{ ansible_user }}/monitoring/prometheus-datasource.yml"
+        mode: '0644'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Levantar contenedores con Prometheus y Grafana
+      shell: docker-compose up -d
+      args:
+        chdir: /home/{{ ansible_user }}
+
+    - name: Copiar script ARIMA
+      copy:
+        src: /mnt/c/Users/David/Documents/Pronosticos/app.R
+        dest: /home/avid/prediccion_arima.R
+        mode: '0755'
+        owner: "avid"
+        group: "avid"
+
+    - name: Copiar app Shiny al servidor
+      copy:
+        src: "{{ shiny_app_src }}"
+        dest: "{{ shiny_app_dest }}"
+        mode: '0755'
+        owner: "avid"
+        group: "avid"
+        remote_src: no
+
+    - name: Ejecutar app Shiny en segundo plano
+      shell: nohup R -e "shiny::runApp('/home/avid/Pronosticos', host='0.0.0.0', port=3838, launch.browser = FALSE)" > shiny.log 2>&1 &
