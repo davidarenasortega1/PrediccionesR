@@ -13,7 +13,9 @@ Todo el código funciona desde el playbook de Ansible, de esta forma, se levanta
 
 Todas estas gráficas se han enviado también a dyntrace para la creación de dashboards y de alarmas.
 ![Predicción ARIMA](Dashboards.JPG)
-
+![Predicción ARIMA](sobrecarga.JPG)
+De forma que cuando se detecta una sobrecarga ( imagen anterior ) se notifica por mail al usuario:
+![Predicción ARIMA](sobrecarga.JPG)
 
 ---
 
