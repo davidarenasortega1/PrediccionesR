@@ -11,6 +11,8 @@ Todo el código funciona desde el playbook de Ansible, de esta forma, se levanta
 ![Predicción ARIMA](prophet.JPG)
 ![Predicción ARIMA](alarmas.JPG)
 
+Todas estas gráficas se han enviado también a dyntrace para la creación de dashboards y de alarmas.
+![Predicción ARIMA](Dashboards.JPD)
 
 
 ---
