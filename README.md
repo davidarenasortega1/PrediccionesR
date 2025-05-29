@@ -15,7 +15,7 @@ Todas estas gráficas se han enviado también a dyntrace para la creación de da
 ![Predicción ARIMA](Dashboards.JPG)
 ![Predicción ARIMA](sobrecarga.JPG)
 De forma que cuando se detecta una sobrecarga ( imagen anterior ) se notifica por mail al usuario:
-![Predicción ARIMA](Notificacion.jpg)
+![Predicción ARIMA](notificacion.JPG)
 
 ---
 
