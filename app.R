@@ -5,28 +5,112 @@ library(dplyr)
 library(httr)
 library(jsonlite)
 #esperar un rato para que lleguen metricas
-prometheus_url <- "http://localhost:9090/api/v1/query"
-query <- 'go_gc_duration_seconds_sum'
-response <- GET(prometheus_url, query = list(query = query))
-content_text <- content(response, "text", encoding = "UTF-8")
-content_json <- fromJSON(content_text, flatten = TRUE)
-results <- content_json$data$result
-value_vec <- results$value[[1]]
-value_str <- value_vec[2]
-value_parseados <- as.numeric(value_str)
+#prometheus_url <- "http://localhost:9090/api/v1/query"
+#query <- 'go_gc_duration_seconds_sum'
+#response <- GET(prometheus_url, query = list(query = query))
+#content_text <- content(response, "text", encoding = "UTF-8")
+#content_json <- fromJSON(content_text, flatten = TRUE)
+#results <- content_json$data$result
+#value_vec <- results$value[[1]]
+#value_str <- value_vec[2]
+#value_parseados <- as.numeric(value_str)
 #serie temporal de ejemplo
 # Simulación de métrica Prometheus (puedes sustituir esto por extracción real)
+
+run_forecasting_and_send_metrics <- function(env_url, token) {
+  # --- Librerías necesarias ---
+  library(prophet)
+  library(forecast)
+  library(tibble)
+  library(dplyr)
+  #datos de prueba
+  set.seed(123)
+  n <- 60
+  base_values <- rnorm(n, mean = 5e6, sd = 7e5)
+  spike_positions <- sample(1:n, 5)
+  base_values[spike_positions] <- base_values[spike_positions] + 4e6  
+  
+  values_originales <- round(pmin(base_values, 9e6))  
+  
+  ts_data <- ts(values_originales, frequency = 12)
+  
+  df_prophet <- tibble(ds = seq.Date(Sys.Date() - n + 1, by = "day", length.out = n),
+                       y = as.numeric(values_originales))
+  m_prophet <- prophet(df_prophet, verbose = FALSE)
+  future_prophet <- make_future_dataframe(m_prophet, periods = 10)
+  forecast_prophet <- predict(m_prophet, future_prophet)
+  forecast_prophet_vector <- round(tail(forecast_prophet$yhat, 10))
+  
+  fit_sarima <- auto.arima(ts_data)
+  forecast_sarima <- forecast(fit_sarima, h = 10)
+  forecast_sarima_vector <- round(forecast_sarima$mean)
+  
+  t <- 1:length(ts_data)
+  harmonic_model <- lm(ts_data ~ sin(2 * pi * t / 12) + cos(2 * pi * t / 12))
+  future_t <- (length(t) + 1):(length(t) + 10)
+  harmonic_forecast <- predict(harmonic_model, newdata = data.frame(
+    t = future_t,
+    sin = sin(2 * pi * future_t / 12),
+    cos = cos(2 * pi * future_t / 12)
+  ))
+  forecast_harmonic_vector <- round(harmonic_forecast)
+  
+  send_metrics <- function(values, metric_name) {
+    cpu <- 1
+    start_ts <- as.numeric(Sys.time()) * 1000
+    start_ts <- start_ts - length(values) * 60000  
+    
+    lines <- c()
+    for (i in seq_along(values)) {
+      options(scipen = 999)
+      ts <- start_ts + (i) * 60000
+      print(ts)
+      line <- sprintf("%s,cpu=%d %.1f %.0f", metric_name, cpu, values[i], ts)
+      lines <- c(lines, line)
+    }
+    
+    body <- paste(lines, collapse = "\n")
+    
+    curl_cmd <- sprintf(
+      'curl -X POST "%s" -H "Authorization: Api-Token %s" -H "Content-Type: text/plain; charset=utf-8" --data-binary "%s"',
+      env_url, token, body
+    )
+    
+    cat("Líneas que se van a enviar para", metric_name, ":\n", body, "\n")
+    system(curl_cmd)
+  }
+  
+  cat("Valores originales:\n")
+  print(values_originales)
+  
+  cat("\nForecast Prophet:\n")
+  print(forecast_prophet_vector)
+  send_metrics(forecast_prophet_vector, "custom.prophet")
+  
+  cat("\nForecast SARIMA:\n")
+  print(forecast_sarima_vector)
+  send_metrics(forecast_sarima_vector, "custom.sarima")
+  
+  cat("\nForecast Armónico:\n")
+  print(forecast_harmonic_vector)
+  send_metrics(forecast_harmonic_vector, "custom.armonico")
+  
+  send_metrics(values_originales, "custom.originales")
+}
+
+#datos de prueba
 vector <- c(
   2498560, 4055040, 4169728, 4636672, 4284416, 3661824, 4005888, 3768320, 4448256,
-  3900000, 4100000, 7000000,  
-  4050000, 4087808, 4317184, 4554752, 3842048, 3866624, 4268032,
-  4481024, 4235264, 3989504, 8000000,  
-  4759552, 4554752, 3555328, 4784128, 4390912, 3973120,
-  4251648, 4030464, 4276224, 3956736, 8500000, 
-  4505600, 4153344, 4595712, 4000000, 3800000, 3700000, 3600000,
-  4571136, 4145152, 4792320, 3579904, 7000000,
-  3883008, 3700000, 3600000,
+  3900000, 4100000, 7000000, 4050000, 4087808, 4317184, 4554752, 3842048, 3866624, 4268032,
+  4481024, 4235264, 3989504, 8000000, 4759552, 4554752, 3555328, 4784128, 4390912, 3973120,
+  4251648, 4030464, 4276224, 3956736, 8500000, 4505600, 4153344, 4595712, 4000000, 3800000, 
+  3700000, 3600000, 4571136, 4145152, 4792320, 3579904, 7000000, 3883008, 3700000, 3600000, 
   3400000, 3300000, 3100000, 3000000
+)
+#credenciales de dyantrace
+run_forecasting_and_send_metrics(
+  env_url = "TU URL ",
+  token = "TU TOKEN"
 )
 
 create_fourier <- function(n, K) {
@@ -197,3 +281,5 @@ server <- function(input, output) {
 }
 
 shinyApp(ui = ui, server = server)
+
+
