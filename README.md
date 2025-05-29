@@ -4,10 +4,14 @@ Este proyecto automatiza la recolección, análisis y predicción de métricas d
 
 ![Predicción ARIMA](Captura.JPG)
 
+Todo el código funciona desde el playbook de Ansible, de esta forma, se levantan los contenedores, se descargan las librerías necesarias y se ejecuta el código de R en segundo plano. La web que despliega R está disponible en el localhost:3838, a continuación se pueden ver capturas de esta app.
 
 ![Predicción ARIMA](arima.JPG)
 ![Predicción ARIMA](armonico.JPG)
 ![Predicción ARIMA](prophet.JPG)
 ![Predicción ARIMA](alarmas.JPG)
+
+
+
 ---
 
